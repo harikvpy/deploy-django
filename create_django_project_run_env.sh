@@ -274,7 +274,7 @@ EOF
 
 # create supervisord init.d script that can be controlled with service
 echo "Setting up supervisor to autostart during bootup..."
-cp ./supervisord /etc/init.d
+cp ./supervisord /etc/init.d || error_exit "Error copying /etc/init.d/supervisord"
 # enable execute flag on the script
 chmod +x /etc/init.d/supervisord || error_exit "Error setting execute flag on supervisord"
 # create the entries in runlevel folders to autostart supervisord
@@ -286,5 +286,10 @@ su -l $APPNAME << EOF
 source ./bin/activate
 django-admin.py startproject $APPNAME
 EOF
+
+# now start the supervisord daemon
+service supervisord start || error_exit "Error starting supervisord"
+# reload nginx so that requests to domain are redirected to the gunicorn process
+nginx -s reload || error_exit "Error reloading nginx. Check configuration files"
 
 echo "Done!"
