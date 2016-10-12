@@ -27,4 +27,11 @@ the django project will be served from this account's home folder
 
 `<domain_name>` is the domain name where the website is to be to be deployed. 
 Specify this without the `www` prefix. Appropriate NGINX configuration files
-will be generated to redirect both `<domain_name>` and `www.<domain_name>`.
+will be generated to direct requets to both `<domain_name>` and 
+`www.<domain_name>` to the django app.
+
+For example, for deploying the domain qqden.com, use the following command:
+
+```
+create_django_project_run_env qqden qqden.com
+```
