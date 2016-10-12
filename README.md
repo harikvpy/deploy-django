@@ -15,20 +15,21 @@ environment will have the following characterstics:
 # Usage
 Use the command as follows:
 ```
-create_django_project_run_env <project_name> <domain_name>
+create_django_project_run_env <project> <domain>
 ```
 where:
 
-`<project_name>` is the name of the parent project you use to refer to the 
+`<project>` is the name of the parent project you use to refer to the 
 solution. This should be a single word without space or other special charactes.
-A new user account with this name will be created under the group `webapps` and
+A new user account with this name will be created under group `webapps` and
 the django project will be served from this account's home folder 
-`/webapps/<project_name>_project`.
+`/webapps/<project>_project`. If group `webapps` does not exist, it will
+be created.
 
-`<domain_name>` is the domain name where the website is to be to be deployed. 
+`<domain>` is the domain name where the website is to be to be deployed. 
 Specify this without the `www` prefix. Appropriate NGINX configuration files
-will be generated to direct requets to both `<domain_name>` and 
-`www.<domain_name>` to the django app.
+will be generated to direct requets to both `<domain>` and 
+`www.<domain>` to the django app.
 
 For example, for deploying the domain qqden.com, use the following command:
 
