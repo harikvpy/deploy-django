@@ -23,8 +23,9 @@ GROUPNAME=webapps
 # app folder name under /webapps/<appname>_project
 APPFOLDER=$1_project
 APPFOLDERPATH=/$GROUPNAME/$APPFOLDER
-# prerequisite standard packages. If any of these are missing, script will abort
-LIUNX_PREREQ=('git' 'build-essential' 'python-dev' 'nginx' 'postgresql' 'libpq-dev' 'python-pip')
+# prerequisite standard packages. If any of these are missing, 
+# script will attempt to install it. If installation fails, it will abort.
+LINUX_PREREQ=('git' 'build-essential' 'python-dev' 'nginx' 'postgresql' 'libpq-dev' 'python-pip')
 PYTHON_PREREQ=('virtualenv' 'supervisor')
 
 # check appname was supplied as argument
@@ -38,7 +39,7 @@ fi
 # test prerequisites
 echo "Checking if required packages are installed..."
 declare -a MISSING
-for pkg in "${LIUNX_PREREQ[@]}"
+for pkg in "${LINUX_PREREQ[@]}"
     do
         echo "Installing '$pkg'..."
         apt-get -y install $pkg
@@ -258,7 +259,32 @@ EOF
 # make a symbolic link to the nginx conf file in sites-enabled
 ln -s /etc/nginx/sites-available/$APPNAME.conf /etc/nginx/sites-enabled/$APPNAME 
 
-# create the supervisor conf file
+# create supervisord.conf
+cat > /etc/supervisord.conf << EOF
+[unix_http_server]
+file=/tmp/supervisor.sock   ; (the path to the socket file)
+
+[supervisord]
+logfile=/tmp/supervisord.log ; (main log file;default $CWD/supervisord.log)
+logfile_maxbytes=50MB        ; (max main logfile bytes b4 rotation;default 50MB)
+logfile_backups=10           ; (num of main logfile rotation backups;default 10)
+loglevel=info                ; (log level;default info; others: debug,warn,trace)
+pidfile=/tmp/supervisord.pid ; (supervisord pidfile;default supervisord.pid)
+nodaemon=false               ; (start in foreground if true;default false)
+minfds=1024                  ; (min. avail startup file descriptors;default 1024)
+minprocs=200                 ; (min. avail process descriptors;default 200)
+
+[rpcinterface:supervisor]
+supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
+
+[supervisorctl]
+serverurl=unix:///tmp/supervisor.sock ; use a unix:// URL  for a unix socket
+
+[include]
+files = /etc/supervisor/*.conf
+EOF
+
+# create the supervisor application conf file
 mkdir -p /etc/supervisor
 cat > /etc/supervisor/$APPNAME.conf << EOF
 [program:$APPNAME]
@@ -432,5 +458,12 @@ chmod +x /etc/init.d/supervisord || error_exit "Error setting execute flag on su
 
 # create the entries in runlevel folders to autostart supervisord
 update-rc.d supervisord defaults || error_exit "Error configuring supervisord to autostart"
+
+# now create a quasi django project that can be run using a GUnicorn script
+echo "Installing quasi django project..."
+su -l $APPNAME << EOF
+source ./bin/activate
+django-admin.py startproject $APPNAME
+EOF
 
 echo "Done!"
