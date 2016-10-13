@@ -216,3 +216,15 @@ Providing these three environment variables, allows the Django app to use
 different values for these three Django app parameters in production 
 environment than what is used in development.
 
+# Notes
+The script, `~/gunicorn_start.sh` is the only connection between the Gunicorn
+configuration and the Django app server. So as long as running this script 
+results in a valid app server instance, the rest of the system will remain
+of the expected integrity. So if the Django app being deployed requires 
+different configuration, any requisite changes can be made from this file.
+
+`~/prepare_env.sh` is sourced from this file to setup the environment. So this
+file is also available for further tweaking to suit the deployed app's
+runtime environment.
+
+
