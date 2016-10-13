@@ -93,6 +93,7 @@ chown -R $APPNAME:$GROUPNAME $APPFOLDERPATH || error_exit "Error setting ownersh
 chmod g+x $APPFOLDERPATH || error_exit "Error setting group execute flag"
 
 # install python virtualenv in the APPFOLDER
+echo "Creating environment setup for django app..."
 su -l $APPNAME << 'EOF'
 pwd
 echo "Setting up python virtualenv..."
@@ -112,9 +113,34 @@ for dpkg in "${DJANGO_PKGS[@]}"
 # create the default folders where we store django app's resources
 echo "Creating static file folders..."
 mkdir logs run ssl static media || error_exit "Error creating static folders"
+
 EOF
 
+# generate secret key
+echo "Generating Django secret key..."
+DJANGO_SECRET_KEY=`openssl rand -base64 48`
+if [ $? -ne 0 ]; then
+    error_exit "Error creating secret key."
+fi
+echo $DJANGO_SECRET_KEY > $APPFOLDERPATH/.django_secret_key
+chown $APPNAME:$GROUPNAME $APPFOLDERPATH/.django_secret_key
+
 echo "Creating gunicorn startup script..."
+cat > /tmp/prepare_env.sh << EOF
+DJANGODIR=$APPFOLDERPATH/$APPNAME          # Django project directory
+DJANGO_SETTINGS_MODULE=$APPNAME.settings # settings file for the app
+
+export DJANGO_SETTINGS_MODULE=\$DJANGO_SETTINGS_MODULE
+export PYTHONPATH=\$DJANGODIR:\$PYTHONPATH
+export SECRET_KEY=`cat $APPFOLDERPATH/.django_secret_key`
+export DB_PASSWORD=`cat $APPFOLDERPATH/.django_db_password`
+
+cd $APPFOLDERPATH
+source ./bin/activate
+EOF
+mv /tmp/prepare_env.sh $APPFOLDERPATH
+chown $APPNAME:$GROUPNAME $APPFOLDERPATH/prepare_env.sh
+
 cat > /tmp/gunicorn_start.sh << EOF
 #!/bin/bash
 # Makes the following assumptions:
@@ -129,22 +155,16 @@ cat > /tmp/gunicorn_start.sh << EOF
 #  5. The django app is stored under /webapps/<appname>/<appname> folder.
 #
 
-NAME="$APPNAME"                                  # Name of the application
-DJANGODIR=$APPFOLDERPATH/\$NAME             # Django project directory
+cd $APPFOLDERPATH
+source ./prepare_env.sh
+
 SOCKFILE=$APPFOLDERPATH/run/gunicorn.sock  # we will communicte using this unix socket
 USER=$APPNAME                                        # the user to run as
 GROUP=$GROUPNAME                                     # the group to run as
 NUM_WORKERS=3                                     # how many worker processes should Gunicorn spawn
-DJANGO_SETTINGS_MODULE=$APPNAME.settings             # which settings file should Django use
 DJANGO_WSGI_MODULE=$APPNAME.wsgi                     # WSGI module name
 
 echo "Starting $APPNAME as \`whoami\`"
-
-# Activate the virtual environment
-cd \$DJANGODIR
-source ../bin/activate
-export DJANGO_SETTINGS_MODULE=\$DJANGO_SETTINGS_MODULE
-export PYTHONPATH=\$DJANGODIR:\$PYTHONPATH
 
 # Create the run directory if it doesn't exist
 RUNDIR=\$(dirname \$SOCKFILE)
@@ -152,14 +172,15 @@ test -d \$RUNDIR || mkdir -p \$RUNDIR
 
 # Start your Django Unicorn
 # Programs meant to be run under supervisor should not daemonize themselves (do not use --daemon)
-exec ../bin/gunicorn \${DJANGO_WSGI_MODULE}:application \
-  --name \$NAME \
+exec ./bin/gunicorn \${DJANGO_WSGI_MODULE}:application \
+  --name $APPNAME \
   --workers \$NUM_WORKERS \
   --user=\$USER --group=\$GROUP \
   --bind=unix:\$SOCKFILE \
   --log-level=debug \
   --log-file=-
 EOF
+
 # move the script to app folder
 mv /tmp/gunicorn_start.sh $APPFOLDERPATH
 chown $APPNAME:$GROUPNAME $APPFOLDERPATH/gunicorn_start.sh
@@ -172,8 +193,8 @@ DBPASSWORD=`openssl rand -base64 32`
 if [ $? -ne 0 ]; then
     error_exit "Error creating secure password for database role."
 fi
-echo $DBPASSWORD > $APPFOLDERPATH/db_passwd.txt
-chown $APPNAME:$GROUPNAME $APPFOLDERPATH/db_passwd.txt
+echo $DBPASSWORD > $APPFOLDERPATH/.django_db_password
+chown $APPNAME:$GROUPNAME $APPFOLDERPATH/.django_db_password
 echo "Creating PostgreSQL role '$APPNAME'..."
 su postgres -c "createuser -S -D -R -w $APPNAME"
 echo "Changing password of database role..."
