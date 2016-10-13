@@ -204,15 +204,15 @@ stored in `~/.django_secret_key`.
 
 ### Environment variables
 Both the secret key and the database role password (stored in 
-`~/.django_secret_key` and `~/django_db_password`) will be made available to
+`~/.django_secret_key` and `~/.django_db_password`) is made available to
 the Django app through the environment variables `SECRET_KEY` and 
-`DB_PASSWORD`. These variables will be set through the script 
+`DB_PASSWORD` respectively. These variables will be set through the script 
 `~/prepare_env.sh`.
 
 Additionally, the settings file to be used with the Django app is set
-throug the environment variable `DJANGO_SETTINGS_MODULE`.
+through the environment variable `DJANGO_SETTINGS_MODULE`.
 
 Providing these three environment variables, allows the Django app to use
-different values for these three Django app parameters, in production 
+different values for these three Django app parameters in production 
 environment than what is used in development.
 
