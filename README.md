@@ -192,4 +192,27 @@ A placeholder Django app will be created in
 `/webapps/<project>_project/<project>`. This placeholder app can be replaced 
 with the real production code.
 
+## Other Details
+### Django secret key
+Django applications generated using its admin command, will put the secret key
+in the generated settings file. Since the Django source is shared between 
+different developers and since the code is typically stored in an online 
+repository, this key gets shared across different machines and usere. Therefore
+production sites should not use this embedded key and instead should use its
+own key. To automate this the script will generate a random string which is
+stored in `~/.django_secret_key`.
+
+### Environment variables
+Both the secret key and the database role password (stored in 
+`~/.django_secret_key` and `~/django_db_password`) will be made available to
+the Django app through the environment variables `SECRET_KEY` and 
+`DB_PASSWORD`. These variables will be set through the script 
+`~/prepare_env.sh`.
+
+Additionally, the settings file to be used with the Django app is set
+throug the environment variable `DJANGO_SETTINGS_MODULE`.
+
+Providing these three environment variables, allows the Django app to use
+different values for these three Django app parameters, in production 
+environment than what is used in development.
 
