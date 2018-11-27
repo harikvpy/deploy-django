@@ -120,6 +120,9 @@ for dpkg in "${DJANGO_PKGS[@]}"
 # create the default folders where we store django app's resources
 echo "Creating static file folders..."
 mkdir logs run ssl static media || error_exit "Error creating static folders"
+# Create the UNIX socket file for WSGI interface
+echo "Creating WSGI interface UNIX socket file..."
+python -c "import socket as s; sock = s.socket(s.AF_UNIX); sock.bind('./run/gunicorn.sock')"
 
 EOF
 
