@@ -19,22 +19,51 @@ fi
 # conventional values that we'll use throughout the script
 APPNAME=$1
 DOMAINNAME=$2
+PYTHON_VERSION=$3
+
+# check appname was supplied as argument
+if [ "$APPNAME" == "" ] || [ "$DOMAINNAME" == "" ]; then
+    echo "Usage:"
+    echo "  $ create_django_project_run_env <project> <domain> [python-version]"
+    echo
+    echo "  Python version is 2 or 3 and defaults to 3 if not specified. Subversion"
+    echo "  of Python will be determined during runtime. The required Python version"
+    echo "  has to be installed and available globally."
+    echo
+    exit 1
+fi
+
+# Default python version to 3. OS has to have it installed.
+if [ "$PYTHON_VERSION" == "" ]; then
+    PYTHON_VERSION=3
+fi
+
+if [ "$PYTHON_VERSION" != "3" -a "$PYTHON_VERSION" != "2" ]; then
+error_exit "Invalid Python version specified. Acceptable values are 2 or 3 (default)"
+fi
+
 GROUPNAME=webapps
 # app folder name under /webapps/<appname>_project
 APPFOLDER=$1_project
 APPFOLDERPATH=/$GROUPNAME/$APPFOLDER
 # prerequisite standard packages. If any of these are missing, 
 # script will attempt to install it. If installation fails, it will abort.
-LINUX_PREREQ=('git' 'build-essential' 'python-dev' 'nginx' 'postgresql' 'libpq-dev' 'python-pip')
+if [ "$PYTHON_VERSION" == "3" ]; then
+LINUX_PREREQ=('git' 'build-essential' 'python3-dev' 'python3-pip' 'nginx' 'postgresql' 'libpq-dev' )
+else
+LINUX_PREREQ=('git' 'build-essential' 'python-dev' 'python-pip' 'nginx' 'postgresql' 'libpq-dev')
+fi
 PYTHON_PREREQ=('virtualenv' 'supervisor')
 
-# check appname was supplied as argument
-if [ "$APPNAME" == "" ] || [ "$DOMAINNAME" == "" ]; then
-    echo "Usage:"
-    echo "  $ create_django_project_run_env <project> <domain>"
-    echo
-    exit 1
+# Determine requested Python version & subversion
+if [ "$PYTHON_VERSION" == "3" ]; then
+PYTHON_VERSION_STR=`python3 -c 'import sys; ver = "{0}.{1}".format(sys.version_info[:][0], sys.version_info[:][1]); print(ver)'`
+else
+PYTHON_VERSION_STR=`python -c 'import sys; ver = "{0}.{1}".format(sys.version_info[:][0], sys.version_info[:][1]); print ver'`
 fi
+
+# Verify required python version is installed
+echo "Python version: $PYTHON_VERSION_STR"
 
 # test prerequisites
 echo "Checking if required packages are installed..."
@@ -94,10 +123,24 @@ chmod g+x $APPFOLDERPATH || error_exit "Error setting group execute flag"
 
 # install python virtualenv in the APPFOLDER
 echo "Creating environment setup for django app..."
+if [ "$PYTHON_VERSION" == "3" ]; then
 su -l $APPNAME << 'EOF'
 pwd
 echo "Setting up python virtualenv..."
-virtualenv . || error_exit "Error installing virtual environment to app folder"
+virtualenv -p python3 . || error_exit "Error installing Python 3 virtual environment to app folder"
+
+EOF
+else
+su -l $APPNAME << 'EOF'
+pwd
+echo "Setting up python virtualenv..."
+virtualenv . || error_exit "Error installing Python 2 virtual environment to app folder"
+
+EOF
+fi
+
+
+su -l $APPNAME << 'EOF'
 source ./bin/activate
 # upgrade pip
 pip install --upgrade pip || error_exist "Error upgrading pip to the latest version"
@@ -228,7 +271,7 @@ server {
         alias $APPFOLDERPATH/static;
     }
     location /static/admin {
-       alias $APPFOLDERPATH/lib/python2.7/site-packages/django/contrib/admin/static/admin/;
+       alias $APPFOLDERPATH/lib/python$PYTHON_VERSION_STR/site-packages/django/contrib/admin/static/admin/;
     }
     # This would redirect http site access to HTTPS. Uncomment to enable
     #location / {
@@ -266,7 +309,7 @@ server {
 #        alias $APPFOLDERPATH/static;
 #    }
 #    location /static/admin {
-#       alias $APPFOLDERPATH/lib/python2.7/site-packages/django/contrib/admin/static/admin/;
+#       alias $APPFOLDERPATH/lib/python$PYTHON_VERSION_STR/site-packages/django/contrib/admin/static/admin/;
 #    }
 #    location / {
 #        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
