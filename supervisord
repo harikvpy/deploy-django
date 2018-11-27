@@ -21,7 +21,7 @@ PATH=/sbin:/usr/sbin:/bin:/usr/bin
 DESC="A process control system"
 NAME=supervisord
 DAEMON=/usr/local/bin/supervisord
-DAEMON_ARGS=""
+DAEMON_ARGS="-- -c /etc/supervisord.conf"
 PIDFILE=/tmp/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
 
@@ -127,10 +127,11 @@ case "$1" in
 	# If the "reload" option is implemented then remove the
 	# 'force-reload' alias
 	#
-	log_daemon_msg "Restarting $NAME..."
+	log_daemon_msg "Stopping $NAME..."
 	do_stop
 	case "$?" in
 	  0|1)
+		log_daemon_msg "Starting $NAME..."
 		do_start
 		case "$?" in
 			0) log_end_msg 0 ;;
@@ -144,9 +145,12 @@ case "$1" in
 		;;
 	esac
 	;;
+  status)
+	status_of_proc -p $PIDFILE $DAEMON $NAME && exit 0 || exit $?
+	;;
+
   *)
-	#echo "Usage: $SCRIPTNAME {start|stop|restart|reload|force-reload}" >&2
-	echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload}" >&2
+	echo "Usage: $SCRIPTNAME {start|stop|status|restart}" >&2
 	exit 3
 	;;
 esac
