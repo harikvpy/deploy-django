@@ -3,18 +3,9 @@
 # Usage:
 #	$ create_django_project_run_env <appname>
 
-# error exit function
-function error_exit
-{
-    echo "$1" 1>&2
-    exit 1
-}
+source ./common_funcs.sh
 
-# check if we're being run as root
-if [ "$EUID" -ne 0 ]; then
-    echo "Please run as root"
-    exit
-fi
+check_root
 
 # conventional values that we'll use throughout the script
 APPNAME=$1
@@ -23,78 +14,43 @@ PYTHON_VERSION=$3
 
 # check appname was supplied as argument
 if [ "$APPNAME" == "" ] || [ "$DOMAINNAME" == "" ]; then
-    echo "Usage:"
-    echo "  $ create_django_project_run_env <project> <domain> [python-version]"
-    echo
-    echo "  Python version is 2 or 3 and defaults to 3 if not specified. Subversion"
-    echo "  of Python will be determined during runtime. The required Python version"
-    echo "  has to be installed and available globally."
-    echo
-    exit 1
+	echo "Usage:"
+	echo "  $ create_django_project_run_env <project> <domain> [python-version]"
+	echo
+	echo "  Python version is 2 or 3 and defaults to 3 if not specified. Subversion"
+	echo "  of Python will be determined during runtime. The required Python version"
+	echo "  has to be installed and available globally."
+	echo
+	exit 1
 fi
 
 # Default python version to 3. OS has to have it installed.
 if [ "$PYTHON_VERSION" == "" ]; then
-    PYTHON_VERSION=3
+PYTHON_VERSION=3
 fi
 
 if [ "$PYTHON_VERSION" != "3" -a "$PYTHON_VERSION" != "2" ]; then
-error_exit "Invalid Python version specified. Acceptable values are 2 or 3 (default)"
+	error_exit "Invalid Python version specified. Acceptable values are 2 or 3 (default)"
 fi
+
+
+./setup_prereq.sh $PYTHON_VERSION
+error_exit "Error setting up OS prerequisites."
 
 GROUPNAME=webapps
 # app folder name under /webapps/<appname>_project
 APPFOLDER=$1_project
 APPFOLDERPATH=/$GROUPNAME/$APPFOLDER
-# prerequisite standard packages. If any of these are missing, 
-# script will attempt to install it. If installation fails, it will abort.
-if [ "$PYTHON_VERSION" == "3" ]; then
-LINUX_PREREQ=('git' 'build-essential' 'python3-dev' 'python3-pip' 'nginx' 'postgresql' 'libpq-dev' )
-else
-LINUX_PREREQ=('git' 'build-essential' 'python-dev' 'python-pip' 'nginx' 'postgresql' 'libpq-dev')
-fi
-PYTHON_PREREQ=('virtualenv' 'supervisor')
 
 # Determine requested Python version & subversion
 if [ "$PYTHON_VERSION" == "3" ]; then
-PYTHON_VERSION_STR=`python3 -c 'import sys; ver = "{0}.{1}".format(sys.version_info[:][0], sys.version_info[:][1]); print(ver)'`
+	PYTHON_VERSION_STR=`python3 -c 'import sys; ver = "{0}.{1}".format(sys.version_info[:][0], sys.version_info[:][1]); print(ver)'`
 else
-PYTHON_VERSION_STR=`python -c 'import sys; ver = "{0}.{1}".format(sys.version_info[:][0], sys.version_info[:][1]); print ver'`
+	PYTHON_VERSION_STR=`python -c 'import sys; ver = "{0}.{1}".format(sys.version_info[:][0], sys.version_info[:][1]); print ver'`
 fi
 
 # Verify required python version is installed
 echo "Python version: $PYTHON_VERSION_STR"
-
-# test prerequisites
-echo "Checking if required packages are installed..."
-declare -a MISSING
-for pkg in "${LINUX_PREREQ[@]}"
-    do
-        echo "Installing '$pkg'..."
-        apt-get -y install $pkg
-        if [ $? -ne 0 ]; then
-            echo "Error installing system package '$pkg'"
-            exit 1 
-        fi
-    done
-
-for ppkg in "${PYTHON_PREREQ[@]}"
-    do
-        echo "Installing Python package '$ppkg'..."
-        pip install $ppkg
-        if [ $? -ne 0 ]; then
-            echo "Error installing python package '$ppkg'"
-            exit 1 
-        fi
-    done
-
-if [ ${#MISSING[@]} -ne 0 ]; then
-    echo "Following required packages are missing, please install them first."
-    echo ${MISSING[*]}
-    exit 1
-fi
-
-echo "All required packages are installed!"
 
 # create the app folder 
 echo "Creating app folder '$APPFOLDERPATH'..."

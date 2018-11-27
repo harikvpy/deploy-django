@@ -3,71 +3,54 @@
 # Usage:
 #	$ create_django_project_run_env <appname>
 
-# error exit function
-function error_exit
-{
-    echo "$1" 1>&2
-    exit 1
-}
+source ./common_funcs.sh
 
-# check if we're being run as root
-if [ "$EUID" -ne 0 ]; then
-    echo "Please run as root"
-    exit
-fi
+check_root
 
 # conventional values that we'll use throughout the script
 APPNAME=$1
 DOMAINNAME=$2
+PYTHON_VERSION=$3
+
+# check appname was supplied as argument
+if [ "$APPNAME" == "" ] || [ "$DOMAINNAME" == "" ]; then
+	echo "Usage:"
+	echo "  $ create_django_project_run_env <project> <domain> [python-version]"
+	echo
+	echo "  Python version is 2 or 3 and defaults to 3 if not specified. Subversion"
+	echo "  of Python will be determined during runtime. The required Python version"
+	echo "  has to be installed and available globally."
+	echo
+	exit 1
+fi
+
+# Default python version to 3. OS has to have it installed.
+if [ "$PYTHON_VERSION" == "" ]; then
+PYTHON_VERSION=3
+fi
+
+if [ "$PYTHON_VERSION" != "3" -a "$PYTHON_VERSION" != "2" ]; then
+	error_exit "Invalid Python version specified. Acceptable values are 2 or 3 (default)"
+fi
+
 GROUPNAME=webapps
 # app folder name under /webapps/<appname>_project
 APPFOLDER=$1_project
 APPFOLDERPATH=/$GROUPNAME/$APPFOLDER
-# prerequisite standard packages. If any of these are missing, 
-# script will attempt to install it. If installation fails, it will abort.
-LINUX_PREREQ=('git' 'build-essential' 'python-dev' 'nginx' 'postgresql' 'libpq-dev' 'python-pip')
-PYTHON_PREREQ=('virtualenv' 'supervisor')
 
-# check appname was supplied as argument
-if [ "$APPNAME" == "" ] || [ "$DOMAINNAME" == "" ]; then
-    echo "Usage:"
-    echo "  $ create_django_project_run_env <project> <domain>"
-    echo
-    exit 1
+# Determine requested Python version & subversion
+if [ "$PYTHON_VERSION" == "3" ]; then
+	PYTHON_VERSION_STR=`python3 -c 'import sys; ver = "{0}.{1}".format(sys.version_info[:][0], sys.version_info[:][1]); print(ver)'`
+else
+	PYTHON_VERSION_STR=`python -c 'import sys; ver = "{0}.{1}".format(sys.version_info[:][0], sys.version_info[:][1]); print ver'`
 fi
 
-# test prerequisites
-echo "Checking if required packages are installed..."
-declare -a MISSING
-for pkg in "${LINUX_PREREQ[@]}"
-    do
-        echo "Installing '$pkg'..."
-        apt-get -y install $pkg
-        if [ $? -ne 0 ]; then
-            echo "Error installing system package '$pkg'"
-            exit 1 
-        fi
-    done
+# Verify required python version is installed
+echo "Python version: $PYTHON_VERSION_STR"
 
-for ppkg in "${PYTHON_PREREQ[@]}"
-    do
-        echo "Installing Python package '$ppkg'..."
-        pip install $ppkg
-        if [ $? -ne 0 ]; then
-            echo "Error installing python package '$ppkg'"
-            exit 1 
-        fi
-    done
-
-if [ ${#MISSING[@]} -ne 0 ]; then
-    echo "Following required packages are missing, please install them first."
-    echo ${MISSING[*]}
-    exit 1
-fi
-
-echo "All required packages are installed!"
-
-# create the app folder 
+# ###################################################################
+# Create the app folder 
+# ###################################################################
 echo "Creating app folder '$APPFOLDERPATH'..."
 mkdir -p /$GROUPNAME/$APPFOLDER || error_exit "Could not create app folder"
 
@@ -94,10 +77,34 @@ chmod g+x $APPFOLDERPATH || error_exit "Error setting group execute flag"
 
 # install python virtualenv in the APPFOLDER
 echo "Creating environment setup for django app..."
+if [ "$PYTHON_VERSION" == "3" ]; then
 su -l $APPNAME << 'EOF'
 pwd
 echo "Setting up python virtualenv..."
-virtualenv -p python3 . || error_exit "Error installing virtual environment to app folder"
+virtualenv -p python3 . || error_exit "Error installing Python 3 virtual environment to app folder"
+
+EOF
+else
+su -l $APPNAME << 'EOF'
+pwd
+echo "Setting up python virtualenv..."
+virtualenv . || error_exit "Error installing Python 2 virtual environment to app folder"
+
+EOF
+fi
+
+# ###################################################################
+# In the new app specific virtual environment:
+# 	1. Upgrade pip
+#	2. Install django in it.
+#	3. Create following folders:-
+#		static -- Django static files (to be collected here)
+#		media  -- Django media files
+#		logs   -- nginx, gunicorn & supervisord logs
+#		nginx  -- nginx configuration for this domain
+#		ssl	   -- SSL certificates for the domain(NA if LetsEncrypt is used)
+# ###################################################################
+su -l $APPNAME << 'EOF'
 source ./bin/activate
 # upgrade pip
 pip install --upgrade pip || error_exist "Error upgrading pip to the latest version"
@@ -116,7 +123,9 @@ mkdir logs run ssl static media || error_exit "Error creating static folders"
 
 EOF
 
-# generate secret key
+# ###################################################################
+# Generate Django production secret key
+# ###################################################################
 echo "Generating Django secret key..."
 DJANGO_SECRET_KEY=`openssl rand -base64 48`
 if [ $? -ne 0 ]; then
@@ -125,7 +134,11 @@ fi
 echo $DJANGO_SECRET_KEY > $APPFOLDERPATH/.django_secret_key
 chown $APPNAME:$GROUPNAME $APPFOLDERPATH/.django_secret_key
 
-echo "Creating gunicorn startup script..."
+# ###################################################################
+# Create the script that will init the virtual environment. This
+# script will be called from the gunicorn start script created next.
+# ###################################################################
+echo "Creating virtual environment setup script..."
 cat > /tmp/prepare_env.sh << EOF
 DJANGODIR=$APPFOLDERPATH/$APPNAME          # Django project directory
 DJANGO_SETTINGS_MODULE=$APPNAME.settings # settings file for the app
@@ -133,7 +146,6 @@ DJANGO_SETTINGS_MODULE=$APPNAME.settings # settings file for the app
 export DJANGO_SETTINGS_MODULE=\$DJANGO_SETTINGS_MODULE
 export PYTHONPATH=\$DJANGODIR:\$PYTHONPATH
 export SECRET_KEY=`cat $APPFOLDERPATH/.django_secret_key`
-export DB_PASSWORD=`cat $APPFOLDERPATH/.django_db_password`
 
 cd $APPFOLDERPATH
 source ./bin/activate
@@ -141,6 +153,11 @@ EOF
 mv /tmp/prepare_env.sh $APPFOLDERPATH
 chown $APPNAME:$GROUPNAME $APPFOLDERPATH/prepare_env.sh
 
+# ###################################################################
+# Create gunicorn start script which will be spawned and managed
+# using supervisord.
+# ###################################################################
+echo "Creating gunicorn startup script..."
 cat > /tmp/gunicorn_start.sh << EOF
 #!/bin/bash
 # Makes the following assumptions:
@@ -181,13 +198,15 @@ exec ./bin/gunicorn \${DJANGO_WSGI_MODULE}:application \
   --log-file=-
 EOF
 
-# move the script to app folder
+# Move the script to app folder
 mv /tmp/gunicorn_start.sh $APPFOLDERPATH
 chown $APPNAME:$GROUPNAME $APPFOLDERPATH/gunicorn_start.sh
 chmod u+x $APPFOLDERPATH/gunicorn_start.sh
 
-# create the PostgreSQL database and associated role for the app
+# ###################################################################
+# Create the PostgreSQL database and associated role for the app
 # Database and role name would be the same as the <appname> argument
+# ###################################################################
 echo "Creating secure password for database role..."
 DBPASSWORD=`openssl rand -base64 32`
 if [ $? -ne 0 ]; then
@@ -195,6 +214,7 @@ if [ $? -ne 0 ]; then
 fi
 echo $DBPASSWORD > $APPFOLDERPATH/.django_db_password
 chown $APPNAME:$GROUPNAME $APPFOLDERPATH/.django_db_password
+export DB_PASSWORD=`cat $APPFOLDERPATH/.django_db_password`
 echo "Creating PostgreSQL role '$APPNAME'..."
 su postgres -c "createuser -S -D -R -w $APPNAME"
 echo "Changing password of database role..."
@@ -202,7 +222,9 @@ su postgres -c "psql -c \"ALTER USER $APPNAME WITH PASSWORD '$DBPASSWORD';\""
 echo "Creating PostgreSQL database '$APPNAME'..."
 su postgres -c "createdb --owner $APPNAME $APPNAME"
 
-# create nginx template in /etc/nginx/sites-available
+# ###################################################################
+# Create nginx template in /etc/nginx/sites-available
+# ###################################################################
 mkdir -p /etc/nginx/sites-available
 APPSERVERNAME=$APPNAME
 APPSERVERNAME+=_gunicorn
@@ -228,7 +250,7 @@ server {
         alias $APPFOLDERPATH/static;
     }
     location /static/admin {
-       alias $APPFOLDERPATH/lib/python3.5/site-packages/django/contrib/admin/static/admin/;
+       alias $APPFOLDERPATH/lib/python$PYTHON_VERSION_STR/site-packages/django/contrib/admin/static/admin/;
     }
     # This would redirect http site access to HTTPS. Uncomment to enable
     #location / {
@@ -266,7 +288,7 @@ server {
 #        alias $APPFOLDERPATH/static;
 #    }
 #    location /static/admin {
-#       alias $APPFOLDERPATH/lib/python3.5/site-packages/django/contrib/admin/static/admin/;
+#       alias $APPFOLDERPATH/lib/python$PYTHON_VERSION_STR/site-packages/django/contrib/admin/static/admin/;
 #    }
 #    location / {
 #        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -280,10 +302,16 @@ EOF
 # make a symbolic link to the nginx conf file in sites-enabled
 ln -s /etc/nginx/sites-available/$APPNAME.conf /etc/nginx/sites-enabled/$APPNAME 
 
-# copy supervisord.conf
-cp ./supervisord.conf /etc || error_exit "Error copying supervisord.conf"
+# ###################################################################
+# Setup supervisor
+# ###################################################################
 
-# create the supervisor application conf file
+# Copy supervisord.conf if it does not exist
+if [ ! -f /etc/supervisord.conf ]; then
+	cp ./supervisord.conf /etc || error_exit "Error copying supervisord.conf"
+fi
+
+# Create the supervisor application conf file
 mkdir -p /etc/supervisor
 cat > /etc/supervisor/$APPNAME.conf << EOF
 [program:$APPNAME]
@@ -293,24 +321,39 @@ stdout_logfile = $APPFOLDERPATH/logs/gunicorn_supervisor.log
 redirect_stderr = true
 EOF
 
-# create supervisord init.d script that can be controlled with service
-echo "Setting up supervisor to autostart during bootup..."
-cp ./supervisord /etc/init.d || error_exit "Error copying /etc/init.d/supervisord"
-# enable execute flag on the script
-chmod +x /etc/init.d/supervisord || error_exit "Error setting execute flag on supervisord"
-# create the entries in runlevel folders to autostart supervisord
-update-rc.d supervisord defaults || error_exit "Error configuring supervisord to autostart"
+SUPERVISORD_ACTION='reload'
+# Create supervisord init.d script that can be controlled with service
+if [ ! -f /etc/init.d/supervisord ]; then
+    echo "Setting up supervisor to autostart during bootup..."
+	cp ./supervisord /etc/init.d || error_exit "Error copying /etc/init.d/supervisord"
+	# enable execute flag on the script
+	chmod +x /etc/init.d/supervisord || error_exit "Error setting execute flag on supervisord"
+	# create the entries in runlevel folders to autostart supervisord
+	update-rc.d supervisord defaults || error_exit "Error configuring supervisord to autostart"
+    SUPERVISORD_ACTION='start'
+fi
 
-# now create a quasi django project that can be run using a GUnicorn script
+# Now create a quasi django project that can be run using a GUnicorn script
 echo "Installing quasi django project..."
 su -l $APPNAME << EOF
 source ./bin/activate
 django-admin.py startproject $APPNAME
 EOF
 
-# now start the supervisord daemon
-service supervisord start || error_exit "Error starting supervisord"
-# reload nginx so that requests to domain are redirected to the gunicorn process
+# ###################################################################
+# Reload/start supervisord and nginx
+# ###################################################################
+# Start/reload the supervisord daemon
+service supervisord status > /dev/null
+if [ $? -eq 0 ]; then
+    # Service is running, restart it
+    service supervisord restart || error_exit "Error restarting supervisord"
+else
+    # Service is not running, probably it's been installed first. Start it 
+    service supervisord start || error_exit "Error starting supervisord"
+fi
+
+# Reload nginx so that requests to domain are redirected to the gunicorn process
 nginx -s reload || error_exit "Error reloading nginx. Check configuration files"
 
 echo "Done!"
