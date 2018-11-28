@@ -9,7 +9,7 @@ PYTHON_VERSION=$1
 # check appname was supplied as argument
 if [ "$PYTHON_VERSION" == "" ]; then
 echo "Usage:"
-echo "  $ setup_prereq.sh [python-version]"
+echo "  $ install_os_prereq.sh [python-version]"
 echo
 echo "  Python version is 2 or 3 and defaults to 3 if not specified. Subversion"
 echo "  of Python will be determined during runtime. The required Python version"
@@ -27,7 +27,7 @@ if [ "$PYTHON_VERSION" != "3" -a "$PYTHON_VERSION" != "2" ]; then
 error_exit "Invalid Python version specified. Acceptable values are 2 or 3 (default)"
 fi
 
-# Prerequisite standard packages. If any of these are missing, 
+# Prerequisite standard packages. If any of these are missing,
 # script will attempt to install it. If installation fails, it will abort.
 if [ "$PYTHON_VERSION" == "3" ]; then
 LINUX_PREREQ=('git' 'build-essential' 'python3-dev' 'python3-pip' 'nginx' 'postgresql' 'libpq-dev' )
@@ -45,7 +45,7 @@ for pkg in "${LINUX_PREREQ[@]}"
         apt-get -y install $pkg
         if [ $? -ne 0 ]; then
             echo "Error installing system package '$pkg'"
-            exit 1 
+            exit 1
         fi
     done
 
@@ -55,7 +55,7 @@ for ppkg in "${PYTHON_PREREQ[@]}"
         pip install $ppkg
         if [ $? -ne 0 ]; then
             echo "Error installing python package '$ppkg'"
-            exit 1 
+            exit 1
         fi
     done
 
