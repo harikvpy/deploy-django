@@ -130,7 +130,7 @@ Django apps.
 
 # Details
 The sequence of steps taken by the script can be summed up as:
-## OS Packages Installation
+## OS Packages
 As part of the installation, the following OS packages are installed:
 * git
 * build-essential
@@ -160,7 +160,7 @@ group `webapps`. If this group does not exist, it will be created.
 
 Home folder for this account will be set to `/webapps/<project>_project`.
 
-## Runtime environment preparation
+## Runtime environment
 Post user/group creation, the runtime evironment for the app is created. First
 the python virtual environment is created. This is created in the home folder
 of the dedicated automation user account. Therefore `python` and related
@@ -175,7 +175,7 @@ environment just created:
 * gunicorn
 * setproctitle
 
-## Runtime script generation
+## Runtime scripts
 The script then generates two bash scripts that will be used to start the app
 server. The script is split into two files such that it can be used for
 interactive shell for manual interaction with the Django app server. These
@@ -202,7 +202,7 @@ use by the Django app. A dedicated PostgreSQL role with the same name will
 also be created. This role is configured with a random password and this
 password is stored in `~/.django_db_password`.
 
-## Create Nginx Configuration
+## Nginx Configuration
 A Nginx conf file for the requested domain will be created in
 `/etc/nginx/sites-available` and it will be enabled by creating the necessary
 soft link in `/etc/nginx/sites-enabled`. This configuration will be setup such
