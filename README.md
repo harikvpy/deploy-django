@@ -6,9 +6,9 @@ environment will have the following characterstics:
 * Designed to be run using Gunicorn/WSGI and as an app under NGINX.
 * Each site will be run in a dedicated automation user account sandbox.
 * A new PostgreSQL database with the same name as the project specified
-  in command line.
+  in command line that can be used by Django.
 * Python virtualenv setup with basic packages such as pip and django installed.
-* Supervisor, the python based daemon control process installed and/or
+* Supervisor, the python based daemon control process installed and
   configured with the necessary conf file to control the WSGI process.
 * An script to autostart supervisor and control it like other Ubuntu services.
 
@@ -18,15 +18,20 @@ The primary end-user facing components of the package are the two scripts:-
 * `install_os_prereq.sh`
 * `deploy_django_project.sh`
 
-The names ought to be self explanatory. In any case, the first script ensures
-that the necessary packages are installed in the OS. The second script creates
-the automation account, virtual environment, PostgreSQL DB & and the assortment
-of scripts that make up the website deployment.
+The names ought to be self explanatory.
 
-`install_os_prereq.sh` needs to be run only once per machine. Thereafter
-`deploy_django_project.sh` can be run as many times as necessary, once for
-each domain that you want to support on the same machine (using HTTP virtual
-hosts).
+In any case, the first script ensures that the necessary packages are installed
+in the OS. Run this first when deploying a django project to a fresh Ubuntu
+image.
+
+The second script creates the automation account, virtual environment,
+PostgreSQL DB & and sets up the assortment of scripts that make up the website
+deployment.
+
+`install_os_prereq.sh` needs to be run only once per machine, typically after
+a fresh OS image installation. Thereafter `deploy_django_project.sh` can be run
+as many times as necessary, once for each domain that you want to support on
+the same machine (using HTTP virtual hosts).
 
 The old command `create_django_project_run_env.sh` is essentially a wrapper that
 calls the above two scripts in sequence. Unless you have a specific reason (I
@@ -53,7 +58,8 @@ will be generated to direct requets to both `<domain>` and
 `www.<domain>` to the django app.
 
 `<python-version>` is either `2` or `3`, which is the python version that you
-wish to use for the project. Defaults to `3`.
+wish to use for the project. In most cases this can be omitted as it defaults
+to `3`.
 
 For example, for deploying the domain example.com, use the following command:
 
@@ -190,7 +196,7 @@ $ sudo -u <project> -i
 $ source ./prepare_env.sh
 ```
 
-## Database Creation
+## Database
 A PostgreSQL database, with the same name as `<project>` will be created for
 use by the Django app. A dedicated PostgreSQL role with the same name will
 also be created. This role is configured with a random password and this
@@ -206,15 +212,15 @@ proxied to the Gunicorn server started through the script created earlier.
 ## Setup supervisor
 Supervisor installation does not create its own configuration file,
 `/etc/supervisord.conf`. Also Supervisor installation does not create the
-necessary init.d script to start it automatically and manage it interactively.
+necessary `init.d` script to start it automatically and manage it interactively.
 This script addresses both by creating the necessary files for this --
-`/etc/supervisord.conf` and /etc/init.d/supervisord`, a script to manage it
-using the Linux standard `service <daemon> {start|stop}` commands.
+`/etc/supervisord.conf` and `/etc/init.d/supervisord`, a script to manage it
+using the Ubuntu standard `service <daemon> {start|stop}` commands.
 
 The script will also create `/etc/supervisor/<project>/conf` file which will
 contain the configuration for the Gunicorn app server.
 
-## Create placeholder Django app
+## Placeholder Django app
 A placeholder Django app will be created in
 `/webapps/<project>_project/<project>`. This placeholder app can be replaced
 with the real production code.
