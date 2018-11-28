@@ -119,7 +119,7 @@ for dpkg in "${DJANGO_PKGS[@]}"
     done
 # create the default folders where we store django app's resources
 echo "Creating static file folders..."
-mkdir logs run ssl static media || error_exit "Error creating static folders"
+mkdir logs nginx run static media || error_exit "Error creating static folders"
 # Create the UNIX socket file for WSGI interface
 echo "Creating WSGI interface UNIX socket file..."
 python -c "import socket as s; sock = s.socket(s.AF_UNIX); sock.bind('./run/gunicorn.sock')"
@@ -226,12 +226,12 @@ echo "Creating PostgreSQL database '$APPNAME'..."
 su postgres -c "createdb --owner $APPNAME $APPNAME"
 
 # ###################################################################
-# Create nginx template in /etc/nginx/sites-available
+# Create nginx template in ./nginx
 # ###################################################################
-mkdir -p /etc/nginx/sites-available
+mkdir -p ./nginx
 APPSERVERNAME=$APPNAME
 APPSERVERNAME+=_gunicorn
-cat > /etc/nginx/sites-available/$APPNAME.conf << EOF
+cat > ./nginx/$APPNAME.conf << EOF
 upstream $APPSERVERNAME {
     server unix:$APPFOLDERPATH/run/gunicorn.sock fail_timeout=0;
 }
@@ -303,7 +303,7 @@ server {
 #}
 EOF
 # make a symbolic link to the nginx conf file in sites-enabled
-ln -s /etc/nginx/sites-available/$APPNAME.conf /etc/nginx/sites-enabled/$APPNAME 
+ln -sf ./nginx/$APPNAME.conf /etc/nginx/sites-enabled/$APPNAME 
 
 # ###################################################################
 # Setup supervisor
