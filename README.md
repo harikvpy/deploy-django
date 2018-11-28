@@ -33,10 +33,11 @@ a fresh OS image installation. Thereafter `deploy_django_project.sh` can be run
 as many times as necessary, once for each domain that you want to support on
 the same machine (using HTTP virtual hosts).
 
-The old command `create_django_project_run_env.sh` is essentially a wrapper that
-calls the above two scripts in sequence. Unless you have a specific reason (I
-can't think of any), it's best that you don't use this script at all. Instead
-use the new scripts `install_os_prereq.sh` and `deploy_django_project.sh`.
+> The old command `create_django_project_run_env.sh` is essentially a wrapper
+> that calls the above two scripts in sequence. Unless you have a specific
+> reason (I can't think of any), it's best that you don't use this script at
+> all. Instead use the new scripts `install_os_prereq.sh` and
+> `deploy_django_project.sh`.
 
 Use the commands as follows:
 ```
