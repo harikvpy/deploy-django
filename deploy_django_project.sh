@@ -226,12 +226,12 @@ echo "Creating PostgreSQL database '$APPNAME'..."
 su postgres -c "createdb --owner $APPNAME $APPNAME"
 
 # ###################################################################
-# Create nginx template in ./nginx
+# Create nginx template in $APPFOLDERPATH/nginx
 # ###################################################################
-mkdir -p ./nginx
+mkdir -p $APPFOLDERPATH/nginx
 APPSERVERNAME=$APPNAME
 APPSERVERNAME+=_gunicorn
-cat > ./nginx/$APPNAME.conf << EOF
+cat > $APPFOLDERPATH/nginx/$APPNAME.conf << EOF
 upstream $APPSERVERNAME {
     server unix:$APPFOLDERPATH/run/gunicorn.sock fail_timeout=0;
 }
@@ -303,7 +303,7 @@ server {
 #}
 EOF
 # make a symbolic link to the nginx conf file in sites-enabled
-ln -sf ./nginx/$APPNAME.conf /etc/nginx/sites-enabled/$APPNAME 
+ln -sf $APPFOLDERPATH/nginx/$APPNAME.conf /etc/nginx/sites-enabled/$APPNAME 
 
 # ###################################################################
 # Setup supervisor
