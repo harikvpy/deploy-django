@@ -49,7 +49,7 @@ fi
 echo "Python version: $PYTHON_VERSION_STR"
 
 # ###################################################################
-# Create the app folder 
+# Create the app folder
 # ###################################################################
 echo "Creating app folder '$APPFOLDERPATH'..."
 mkdir -p /$GROUPNAME/$APPFOLDER || error_exit "Could not create app folder"
@@ -138,6 +138,17 @@ echo $DJANGO_SECRET_KEY > $APPFOLDERPATH/.django_secret_key
 chown $APPNAME:$GROUPNAME $APPFOLDERPATH/.django_secret_key
 
 # ###################################################################
+# Generate DB password
+# ###################################################################
+echo "Creating secure password for database role..."
+DBPASSWORD=`openssl rand -base64 32`
+if [ $? -ne 0 ]; then
+    error_exit "Error creating secure password for database role."
+fi
+echo $DBPASSWORD > $APPFOLDERPATH/.django_db_password
+chown $APPNAME:$GROUPNAME $APPFOLDERPATH/.django_db_password
+
+# ###################################################################
 # Create the script that will init the virtual environment. This
 # script will be called from the gunicorn start script created next.
 # ###################################################################
@@ -149,6 +160,7 @@ DJANGO_SETTINGS_MODULE=$APPNAME.settings # settings file for the app
 export DJANGO_SETTINGS_MODULE=\$DJANGO_SETTINGS_MODULE
 export PYTHONPATH=\$DJANGODIR:\$PYTHONPATH
 export SECRET_KEY=`cat $APPFOLDERPATH/.django_secret_key`
+export DB_PASSWORD=`cat $APPFOLDERPATH/.django_db_password`
 
 cd $APPFOLDERPATH
 source ./bin/activate
@@ -170,7 +182,7 @@ cat > /tmp/gunicorn_start.sh << EOF
 #     be referred to as the app folder.
 #  3. The group account 'webapps' exists and each app is to be executed
 #     under the user account <appname>.
-#  4. The app folder and all its recursive contents are owned by 
+#  4. The app folder and all its recursive contents are owned by
 #     <appname>:webapps.
 #  5. The django app is stored under /webapps/<appname>/<appname> folder.
 #
@@ -210,14 +222,6 @@ chmod u+x $APPFOLDERPATH/gunicorn_start.sh
 # Create the PostgreSQL database and associated role for the app
 # Database and role name would be the same as the <appname> argument
 # ###################################################################
-echo "Creating secure password for database role..."
-DBPASSWORD=`openssl rand -base64 32`
-if [ $? -ne 0 ]; then
-    error_exit "Error creating secure password for database role."
-fi
-echo $DBPASSWORD > $APPFOLDERPATH/.django_db_password
-chown $APPNAME:$GROUPNAME $APPFOLDERPATH/.django_db_password
-export DB_PASSWORD=`cat $APPFOLDERPATH/.django_db_password`
 echo "Creating PostgreSQL role '$APPNAME'..."
 su postgres -c "createuser -S -D -R -w $APPNAME"
 echo "Changing password of database role..."
@@ -259,7 +263,7 @@ server {
     #location / {
     #    rewrite ^ https://\$http_host\$request_uri? permanent;
     #}
-    # To make the site pure HTTPS, comment the following section while 
+    # To make the site pure HTTPS, comment the following section while
     # uncommenting the above section. Also uncoment the HTTPS section
     location / {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -269,7 +273,7 @@ server {
     }
 }
 
-# Uncomment this if you want to enable HTTPS access. Also, remember to install 
+# Uncomment this if you want to enable HTTPS access. Also, remember to install
 # the site certificate, either purcahased or generated.
 #server {
 #    listen 443 default ssl;
@@ -303,7 +307,7 @@ server {
 #}
 EOF
 # make a symbolic link to the nginx conf file in sites-enabled
-ln -sf $APPFOLDERPATH/nginx/$APPNAME.conf /etc/nginx/sites-enabled/$APPNAME 
+ln -sf $APPFOLDERPATH/nginx/$APPNAME.conf /etc/nginx/sites-enabled/$APPNAME
 
 # ###################################################################
 # Setup supervisor
@@ -352,7 +356,7 @@ if [ $? -eq 0 ]; then
     # Service is running, restart it
     service supervisord restart || error_exit "Error restarting supervisord"
 else
-    # Service is not running, probably it's been installed first. Start it 
+    # Service is not running, probably it's been installed first. Start it
     service supervisord start || error_exit "Error starting supervisord"
 fi
 
