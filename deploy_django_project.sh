@@ -123,7 +123,6 @@ mkdir logs nginx run static media || error_exit "Error creating static folders"
 # Create the UNIX socket file for WSGI interface
 echo "Creating WSGI interface UNIX socket file..."
 python -c "import socket as s; sock = s.socket(s.AF_UNIX); sock.bind('./run/gunicorn.sock')"
-
 EOF
 
 # ###################################################################
@@ -155,9 +154,8 @@ chown $APPNAME:$GROUPNAME $APPFOLDERPATH/.django_db_password
 echo "Creating virtual environment setup script..."
 cat > /tmp/prepare_env.sh << EOF
 DJANGODIR=$APPFOLDERPATH/$APPNAME          # Django project directory
-DJANGO_SETTINGS_MODULE=$APPNAME.settings # settings file for the app
 
-export DJANGO_SETTINGS_MODULE=\$DJANGO_SETTINGS_MODULE
+export DJANGO_SETTINGS_MODULE=$APPNAME.settings.production # settings file for the app
 export PYTHONPATH=\$DJANGODIR:\$PYTHONPATH
 export SECRET_KEY=`cat $APPFOLDERPATH/.django_secret_key`
 export DB_PASSWORD=`cat $APPFOLDERPATH/.django_db_password`
@@ -345,7 +343,57 @@ echo "Installing quasi django project..."
 su -l $APPNAME << EOF
 source ./bin/activate
 django-admin.py startproject $APPNAME
+
+# Change Django's default settings.py to use app/settings/{base.py|dev.py|production.py}
+mv $APPNAME/$APPNAME/settings.py $APPNAME/$APPNAME/base.py
+mkdir $APPNAME/$APPNAME/settings
+mv $APPNAME/$APPNAME/base.py $APPNAME/$APPNAME/settings
+
 EOF
+
+echo "Changing quasi django project settings to production.py..."
+cat > $APPFOLDERPATH/$APPNAME/$APPNAME/settings/production.py << EOF
+from .base import *
+
+def get_env_variable(var):
+    '''Return the environment variable value or raise error'''
+    try:
+        return os.environ[var]
+    except KeyError:
+        error_msg = "Set the {} environment variable".format(var)
+        raise ImproperlyConfigured(error_msg)
+
+DEBUG = False
+
+# Note that this is a wildcard specification. So it matches
+# smallpearl.com as well as www.smallpearl.com
+ALLOWED_HOSTS = ['.$DOMAINNAME']
+
+# CSRF middleware token & session cookie will only be transmitted over HTTPS
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+
+# Get secret hash key from environment variable (set by ./prepre_env.sh)
+SECRET_KEY = get_env_variable('SECRET_KEY')
+
+# Get production DB password is from environment variable
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'smallpearl',
+        'USER': 'smallpearl',
+        'PASSWORD': get_env_variable('DB_PASSWORD'),
+        'HOST': 'localhost',
+        'PORT': '',
+    }
+}
+
+# This setting corresponds to NGINX server configuration, which adds this
+# to the request headers that is proxied to gunicorn app server.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+EOF
+chown $APPNAME:$GROUPNAME $APPFOLDERPATH/$APPNAME/$APPNAME/settings/production.py
 
 # ###################################################################
 # Reload/start supervisord and nginx
