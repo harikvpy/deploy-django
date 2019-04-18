@@ -380,8 +380,8 @@ SECRET_KEY = get_env_variable('SECRET_KEY')
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'smallpearl',
-        'USER': 'smallpearl',
+        'NAME': '$APPNAME',
+        'USER': '$APPNAME',
         'PASSWORD': get_env_variable('DB_PASSWORD'),
         'HOST': 'localhost',
         'PORT': '',
