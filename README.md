@@ -96,7 +96,7 @@ can be replicated across multiple server instances. Even for the most simple
 web application that uses a single server instance, a production site requires
 a staging server where the code needs to be deployed and tested for runtime
 and deployment issues before launching it live. And for sites expecting medium
-to heavy traiffc and load, the code would have be deployed on multiple servers
+to heavy traffic and load, the code would have be deployed on multiple servers
 with the HTTP server deployed as a load balancer or a dedicated load balancer
 distributing the HTTP request load equally across multiple application servers.
 Therefore the need for consistent configuration of multiple servers cannot be
@@ -106,7 +106,7 @@ An even better solution would be standardizing the deployment characteristics
 of a Django web application such that multiple Django applications, serving
 multiple sites, all are deployed in a certain fixed configuration. This would
 make troubleshooting and subsequent fixing of any deployment issues easy as
-all sites retain the same characterstics.
+all sites retain the same characteristics.
 
 This script is an attempt to achieve this deployment standardization for all
 Django apps.
@@ -118,7 +118,7 @@ Django apps.
   packages if they are not installed and therefore a vanilla OS installation
   is all that is necessary.
 * PostgreSQL is used as the database backend. PostgreSQL is considered the best
-  DB backend for Django apps and provides more sophisticaed RDBMS features than
+  DB backend for Django apps and provides more sophisticated RDBMS features than
   MySQL.
 * As already mentioned HTTP server is provided by NGNIX and WSGI is served by
   Gunicorn. NGINX and Gunicorn are considered the best match for Django apps.
