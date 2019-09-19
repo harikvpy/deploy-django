@@ -30,8 +30,10 @@ fi
 # Prerequisite standard packages. If any of these are missing,
 # script will attempt to install it. If installation fails, it will abort.
 if [ "$PYTHON_VERSION" == "3" ]; then
+PIP="pip3"
 LINUX_PREREQ=('git' 'build-essential' 'python3-dev' 'python3-pip' 'nginx' 'postgresql' 'libpq-dev' )
 else
+PIP="pip"
 LINUX_PREREQ=('git' 'build-essential' 'python-dev' 'python-pip' 'nginx' 'postgresql' 'libpq-dev')
 fi
 PYTHON_PREREQ=('virtualenv' 'supervisor')
@@ -52,7 +54,7 @@ for pkg in "${LINUX_PREREQ[@]}"
 for ppkg in "${PYTHON_PREREQ[@]}"
     do
         echo "Installing Python package '$ppkg'..."
-        pip install $ppkg
+        $PIP install $ppkg
         if [ $? -ne 0 ]; then
             echo "Error installing python package '$ppkg'"
             exit 1
