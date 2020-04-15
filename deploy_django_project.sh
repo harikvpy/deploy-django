@@ -304,8 +304,76 @@ server {
 #    }
 #}
 EOF
+
+cat > $APPFOLDERPATH/nginx/index.html << EOF
+<!DOCTYPE html>
+<!--[if IE 9]>         <html class="ie9 no-focus" lang="en"> <![endif]-->
+<!--[if gt IE 9]><!--> <html class="no-focus" lang="en"> <!--<![endif]-->
+    <head>
+        <meta charset="utf-8">
+        <title>$DOMAINNAME - UNDER MAINTENANCE</title>
+        <meta name="description" content="$DOMAINNAME Maintenance Page">
+        <meta name="author" content="$APPNAME">
+        <meta name="robots" content="noindex, nofollow">
+        <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1.0">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400italic,600,700%7COpen+Sans:300,400,400italic,600,700">
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css">
+        <style>
+        body {
+          font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+          font-size: 14px;
+          color: #646464;
+          background-color: #fafafa;
+        }
+        .pulldown { position: relative; top: 50px; }
+        .push-50 { margin-bottom: 50px !important; }
+        .push-30-t { margin-top: 30px !important; }
+        </style>
+    </head>
+    <body>
+        <div class="content bg-white text-center pulldown">
+            <div class="row">
+                <div class="col-sm-6 col-sm-offset-3">
+                    <div class="text-gray push-30-t push-50">
+                        <i class="fa fa-5x fa-cog fa-spin"></i>
+                    </div>
+                    <h1>Sorry, we're down for maintenance.</h1>
+                    <h2>We'll be back shortly!</h2>
+                </div>
+            </div>
+        </div>
+        <div class="pulldown text-center push-30-t">
+            <small class="text-muted"></span>&copy;2018 SmallPearl LLC.</small>
+        </div>
+     </body>
+</html>
+EOF
+
+# nginx site maintenance configuration
+cat > $APPFOLDERPATH/nginx/$APPNAME.maintenance.conf << EOF
+server {
+    listen 80;
+    server_name $DOMAINNAME;
+
+    root $APPFOLDERPATH/nginx;
+    index index.html;
+
+    client_max_body_size 5M;
+    keepalive_timeout 5;
+    underscores_in_headers on;
+
+    access_log $APPFOLDERPATH/logs/nginx-access.log;
+    error_log $APPFOLDERPATH/logs/nginx-error.log;
+
+    location / {
+        try_files \$uri \$uri/ =404;
+    }
+}
+EOF
+
 # make a symbolic link to the nginx conf file in sites-enabled
-ln -sf $APPFOLDERPATH/nginx/$APPNAME.conf /etc/nginx/sites-enabled/$APPNAME
+ln -sf $APPFOLDERPATH/nginx/$APPNAME.maintenance.conf /etc/nginx/sites-enabled/$APPNAME
 
 # ###################################################################
 # Setup supervisor
