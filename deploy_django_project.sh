@@ -304,8 +304,6 @@ server {
 #    }
 #}
 EOF
-<<<<<<< Updated upstream
-=======
 
 cat > $APPFOLDERPATH/nginx/index.html << EOF
 <!DOCTYPE html>
@@ -375,7 +373,6 @@ server {
 }
 EOF
 
->>>>>>> Stashed changes
 # make a symbolic link to the nginx conf file in sites-enabled
 ln -sf $APPFOLDERPATH/nginx/$APPNAME.conf /etc/nginx/sites-enabled/$APPNAME
 
