@@ -1,3 +1,5 @@
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/harikvpy)
+
 # deploy-django
 A bash script to deploy a django project for production sites. The script sets
 up the environment under which the django project can be run safely. The
